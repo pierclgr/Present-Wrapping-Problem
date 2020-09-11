@@ -1,0 +1,14 @@
+paper_width = 15;
+paper_height = 15;
+n_presents = 10;
+presents_dimensions = [|
+3, 3|
+3, 4|
+3, 5|
+3, 6|
+3, 7|
+3, 8|
+3, 9|
+3, 12|
+3, 15|
+6, 3|];
