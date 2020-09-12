@@ -2,7 +2,7 @@ from z3 import Int, And, Or, Sum, If, Solver
 from SMT.src.global_constraints import lex_lesseq
 
 
-def SMT_standard_model(instance):
+def SMT_general_model(instance):
     # --------------------------
     #         PARAMETERS
     # --------------------------
