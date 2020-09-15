@@ -1,5 +1,18 @@
-from z3 import Int, And, Or, Sum, If, Solver
-from SMT.src.global_constraints import lex_lesseq
+#     ____ _       __   ____
+#    / __ \ |     / /  / __ \
+#   / /_/ / | /| / /  / /_/ /
+#  / ____/| |/ |/ /_ / ____/
+# /_/   (_)__/|__/(_)_/   (_)
+
+# -------------------------
+# Present Wrapping Problem
+# -------------------------
+
+# Standard SMT model
+
+# Library inclusions
+from z3 import Int, And, Or, Sum, If, Solver, Bool, Not
+from SMT.src.global_constraints import lex_less, lex_lesseq
 
 
 def SMT_general_model(instance):
@@ -41,6 +54,20 @@ def SMT_general_model(instance):
     # Define bottom-left corner of the pieces of paper to cut as 2-D (width-height) array of int decision variables
     presents_corners = [[Int("x_%s" % i), Int("y_%s" % i)] for i in PRESENTS]
 
+    # Define rotation property for the pieces of paper
+    presents_rotation = [Bool("rotation_%s" % i) for i in PRESENTS]
+
+    # --------------------------
+    #         FUNCTIONS
+    # --------------------------
+
+    # Function to obtain the width and height of a piece of paper based on their positioning (if rotated or not)
+    def get_dimension(i, axis):
+        if axis == x:
+            return If(presents_rotation[i], presents_dimensions[i][y], presents_dimensions[i][x])
+        else:
+            return If(presents_rotation[i], presents_dimensions[i][x], presents_dimensions[i][y])
+
     # --------------------------
     #        CONSTRAINTS
     # --------------------------
@@ -55,46 +82,65 @@ def SMT_general_model(instance):
 
     # Each cutted piece of paper pieces must fit the paper roll dimensions (considering the piece of paper dimensions):
     # bottom-left corner coordinates must be also calculated considering the piece of paper dimensions
-    paper_fit_constraints = [And(presents_corners[i][x] + presents_dimensions[i][x] <= paper_width,
-                                 presents_corners[i][y] + presents_dimensions[i][y] <= paper_height) for i in PRESENTS]
+    paper_fit_constraints = [And(presents_corners[i][x] + get_dimension(i, x) <= paper_width,
+                                 presents_corners[i][y] + get_dimension(i, y) <= paper_height) for i in PRESENTS]
 
     # PAPER LIMIT CONSTRAINT: define the maximum number of usable paper
 
     # The maximum usable quantity of paper is defined by the paper roll dimensions
     cumulative_constraints = [Sum(
-        [If(And(y_coord >= presents_corners[i][y], y_coord < presents_corners[i][y] + presents_dimensions[i][y]),
-            presents_dimensions[i][x], 0) for i in PRESENTS]) <= paper_width for y_coord in Y_COORDINATES] + [Sum(
-        [If(And(x_coord >= presents_corners[i][x], x_coord < presents_corners[i][x] + presents_dimensions[i][x]),
-            presents_dimensions[i][y], 0) for i in PRESENTS]) <= paper_height for x_coord in X_COORDINATES]
+        [If(And(y_coord >= presents_corners[i][y], y_coord < presents_corners[i][y] + get_dimension(i, y)),
+            get_dimension(i, x), 0) for i in PRESENTS]) <= paper_width for y_coord in Y_COORDINATES] + [Sum(
+        [If(And(x_coord >= presents_corners[i][x], x_coord < presents_corners[i][x] + get_dimension(i, x)),
+            get_dimension(i, y), 0) for i in PRESENTS]) <= paper_height for x_coord in X_COORDINATES]
 
     # NON-OVERLAPPING CONSTRAINT: define the non-overlapping property fo the pieces of paper
 
     # The cutted pieces of paper must not overlap: the bottom-left corner coordinates must not be equal to other
     # coordinates of the paper roll which are already occupied by other pieces of paper
 
-    non_overlapping_constraints = [Or(presents_corners[i][x] + presents_dimensions[i][x] <= presents_corners[j][x],
-                                      presents_corners[i][y] + presents_dimensions[i][y] <= presents_corners[j][y],
-                                      presents_corners[j][x] + presents_dimensions[j][x] <= presents_corners[i][x],
-                                      presents_corners[j][y] + presents_dimensions[j][y] <= presents_corners[i][y]) for
-                                   i in PRESENTS
-                                   for j in PRESENTS if i < j]
+    non_overlapping_constraints = [Or(presents_corners[i][x] + get_dimension(i, x) <= presents_corners[j][x],
+                                      presents_corners[i][y] + get_dimension(i, y) <= presents_corners[j][y],
+                                      presents_corners[j][x] + get_dimension(j, x) <= presents_corners[i][x],
+                                      presents_corners[j][y] + get_dimension(j, y) <= presents_corners[i][y])
+                                   for i in PRESENTS for j in PRESENTS if i < j]
+
+    # ORDERING CONSTRAINTS: define an ordering property for the pieces of paper which have the same dimension
+
+    # The pieces of the same dimension must be ordered in order to reduce the number of solutions
+    same_dimension_constraint = [lex_less(presents_corners[i], presents_corners[j])
+                                 for i in PRESENTS for j in PRESENTS if i < j and
+                                 ((presents_dimensions[i][x] == presents_dimensions[j][y] and
+                                   presents_dimensions[i][y] == presents_dimensions[j][x]) or
+                                  (presents_dimensions[i][x] == presents_dimensions[j][x] and
+                                   presents_dimensions[i][y] == presents_dimensions[j][y]))]
+
+    # Same constraint for the problem where rotation of pieces is not an option
+    # same_dimension_constraint = [lex_less(presents_corners[i], presents_corners[j])
+    #                              for i in PRESENTS for j in PRESENTS if i < j and
+    #                              presents_corners[i][x] == presents_corners[j][x] and
+    #                              presents_corners[i][y] == presents_corners[j][y]]
 
     # OPTIMIZATION CONSTRAINTS: constraint to speed up the search of solutions
 
+    # If a piece is square (width == height), do not consider the solution with the piece rotated
+    square_pieces_constraint = [Not(presents_rotation[i]) for i in PRESENTS if
+                                presents_dimensions[i][x] == presents_dimensions[i][y]]
+
     # Symmetry breaking constraint: constraint to break the vertical and horizontal symmetries
-    symmetry_breaking_constraints = [And(lex_lesseq([presents_corners[i][x] for i in PRESENTS],
-                                                    [paper_width - presents_corners[i][x] - presents_dimensions[i][x]
-                                                     for i in PRESENTS]),
-                                         lex_lesseq([presents_corners[i][y] for i in PRESENTS],
-                                                    [paper_height - presents_corners[i][y] - presents_dimensions[i][y]
-                                                     for i in PRESENTS]))]
+    symmetry_breaking_constraints = [lex_lesseq([presents_corners[i][x] for i in PRESENTS],
+                                                [paper_width - presents_corners[i][x] - get_dimension(i, x)
+                                                 for i in PRESENTS]),
+                                     lex_lesseq([presents_corners[i][y] for i in PRESENTS],
+                                                [paper_height - presents_corners[i][y] - get_dimension(i, y)
+                                                 for i in PRESENTS])]
 
     # --------------------------
     #          SOLUTION
     # --------------------------
 
     solver = Solver()
-    solver.add(domain_bound_constraints + paper_fit_constraints + cumulative_constraints + non_overlapping_constraints +
-               symmetry_breaking_constraints)
+    solver.add(domain_bound_constraints + paper_fit_constraints + cumulative_constraints + non_overlapping_constraints
+               + same_dimension_constraint + square_pieces_constraint + symmetry_breaking_constraints)
 
-    return solver, PRESENTS, presents_corners
+    return solver, PRESENTS, presents_corners, presents_rotation

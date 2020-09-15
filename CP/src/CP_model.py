@@ -4,7 +4,7 @@ from datetime import timedelta
 
 def CP_model(input_instance, general, timeout=0):
     not_found_timeout = False
-    # Declare path for the src of the model
+
     if general:
         src_model = "CP/src/PWP_CP_general"
     else:
@@ -18,7 +18,7 @@ def CP_model(input_instance, general, timeout=0):
     instance["n_presents"] = input_instance['n_presents']
     instance["presents_dimensions"] = input_instance['presents_dimensions']
 
-    if timeout is not 0:
+    if timeout != 0:
         timeout = timedelta(seconds=timeout)
         result = instance.solve(timeout=timeout)
         if result.statistics['time'] >= timeout:
@@ -26,4 +26,4 @@ def CP_model(input_instance, general, timeout=0):
     else:
         result = instance.solve()
 
-    return result, result.statistics['solveTime'], not_found_timeout
+    return result, result.statistics['solveTime'], not_found_timeout, result.statistics

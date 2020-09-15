@@ -59,7 +59,6 @@ array[PRESENTS] of var bool: presents_rotation;
 % --------------------------
 
 % Function to obtain the width and height of a piece of paper based on their positioning (if rotated or not)
-
 function var int: get_dimension(int: i, int: axis) = 
                   if axis == x then 
                       if presents_rotation[i] then presents_dimensions[i, y] else presents_dimensions[i, x] endif
@@ -105,7 +104,7 @@ constraint forall(i, j in PRESENTS where i < j /\ (
 
 % Same constraint for the problem where rotation of pieces is not an option
 % constraint forall(i, j in PRESENTS where i < j /\ presents_dimensions[i, ..] == presents_dimensions[j, ..])
-%                  (lex_less(presents_corners[i, ..], presents_corners[j, ..]));
+%            (lex_less(presents_corners[i, ..], presents_corners[j, ..]));
                  
 % OPTIMIZATION CONSTRAINTS: constraint to speed up the search of solutions
 

@@ -8,7 +8,7 @@
 % Present Wrapping Problem
 % ------------------------- 
 
-% Standard CP model (no rotation)
+% Standard CP model
 
 % Global constraints inclusions
 include "cumulative.mzn";

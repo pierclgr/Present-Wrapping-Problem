@@ -1,3 +1,16 @@
+#     ____ _       __   ____
+#    / __ \ |     / /  / __ \
+#   / /_/ / | /| / /  / /_/ /
+#  / ____/| |/ |/ /_ / ____/
+# /_/   (_)__/|__/(_)_/   (_)
+
+# -------------------------
+# Present Wrapping Problem
+# -------------------------
+
+# Standard SMT model
+
+# Library inclusions
 from z3 import Int, And, Or, Sum, If, Solver
 from SMT.src.global_constraints import lex_lesseq
 
@@ -75,26 +88,25 @@ def SMT_standard_model(instance):
     non_overlapping_constraints = [Or(presents_corners[i][x] + presents_dimensions[i][x] <= presents_corners[j][x],
                                       presents_corners[i][y] + presents_dimensions[i][y] <= presents_corners[j][y],
                                       presents_corners[j][x] + presents_dimensions[j][x] <= presents_corners[i][x],
-                                      presents_corners[j][y] + presents_dimensions[j][y] <= presents_corners[i][y]) for
-                                   i in PRESENTS
-                                   for j in PRESENTS if i < j]
+                                      presents_corners[j][y] + presents_dimensions[j][y] <= presents_corners[i][y])
+                                   for i in PRESENTS for j in PRESENTS if i < j]
 
     # OPTIMIZATION CONSTRAINTS: constraint to speed up the search of solutions
 
     # Symmetry breaking constraint: constraint to break the vertical and horizontal symmetries
-    symmetry_breaking_constraints = [And(lex_lesseq([presents_corners[i][x] for i in PRESENTS],
-                                                    [paper_width - presents_corners[i][x] - presents_dimensions[i][x]
-                                                     for i in PRESENTS]),
-                                         lex_lesseq([presents_corners[i][y] for i in PRESENTS],
-                                                    [paper_height - presents_corners[i][y] - presents_dimensions[i][y]
-                                                     for i in PRESENTS]))]
+    symmetry_breaking_constraints = [lex_lesseq([presents_corners[i][y] for i in PRESENTS],
+                                                [paper_height - presents_corners[i][y] - presents_dimensions[i][y]
+                                                 for i in PRESENTS]),
+                                     lex_lesseq([presents_corners[i][x] for i in PRESENTS],
+                                                [paper_width - presents_corners[i][x] - presents_dimensions[i][x]
+                                                 for i in PRESENTS])]
 
     # --------------------------
     #          SOLUTION
     # --------------------------
 
     solver = Solver()
-    solver.add(domain_bound_constraints + paper_fit_constraints + cumulative_constraints + non_overlapping_constraints +
-               symmetry_breaking_constraints)
+    solver.add(domain_bound_constraints + paper_fit_constraints + cumulative_constraints + non_overlapping_constraints
+               + symmetry_breaking_constraints)
 
     return solver, PRESENTS, presents_corners

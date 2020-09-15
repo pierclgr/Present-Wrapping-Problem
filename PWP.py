@@ -1,4 +1,4 @@
-from os import path, makedirs
+from os import path, makedirs, name, system
 import sys
 import pyfiglet
 import glob
@@ -11,15 +11,23 @@ from datetime import timedelta
 from utils.plot import plot_solution
 
 
+def clear():
+    if name == 'nt':
+        system("CLS")
+    else:
+        system("clear")
+
+
 def command_line_interface():
-    specified_path, specified_method, specified_mode, specified_plot, specified_timeout = None, None, None, None, None
+    specified_path = ""
+    specified_method = ""
+    specified_mode = ""
+    specified_plot = False
+    specified_timeout = None
+    specified_stats = False
 
     if len(sys.argv) <= 1:
-        print(pyfiglet.figlet_format("P.W.P.", font="slant") + "-" * 25)
-        print("Present Wrapping Problem")
-        print("-" * 25, "\n")
-
-        print("Mandatory commands that can be used:\n")
+        print("Mandatory commands:\n")
         print("--solve \"path\")")
         print("\tsolves the specified file/folder instance(s):")
         print("\t\tif \"path\" is a file, solves that file instance")
@@ -36,9 +44,14 @@ def command_line_interface():
 
         print("Optional commands:\n")
         print("--timeout \"seconds\"")
-        print("\tspecifies a timeout (in seconds) for the search of each instance solution\n")
+        print("\tspecifies a timeout (in seconds) for the search of each instance solution")
+        print("\t\tif not used, timeout is set to 1800 seconds (30 minutes)")
+        print("\t\tif \"seconds\" is 0, no timeout is used\n")
         print("--plot")
-        print("\tif used, the solution is plotted visually (only works when specifying a single file)\n")
+        print("\tif a single file instance is specified in \"--solve\" command, the solution is plotted visually\n")
+        print("--stats")
+        print("\tif used, the statistics of the solving are printed\n")
+        no_commands = True
     else:
         commands = sys.argv
         if "--solve" not in commands:
@@ -80,12 +93,22 @@ def command_line_interface():
         else:
             specified_plot = False
 
-    return specified_path, specified_method, specified_mode, specified_timeout, specified_plot
+        if "--stats" in commands:
+            specified_stats = True
+        else:
+            specified_stats = False
+
+        no_commands = False
+
+    return specified_path, specified_method, specified_mode, specified_timeout, specified_plot, specified_stats, \
+           no_commands
 
 
 # Define function to choose the timeout
 def choose_timeout(chosen_timeout):
     if chosen_timeout is None:
+        chosen_timeout = 1800
+    elif chosen_timeout == 0:
         chosen_timeout = 0
     else:
         try:
@@ -94,9 +117,9 @@ def choose_timeout(chosen_timeout):
             raise Exception(
                 "\n\"" + chosen_timeout + "\" is not a valid timeout, please insert a timeout in seconds.\n")
 
-        if chosen_timeout < 1:
+        if chosen_timeout < 0:
             raise Exception("\n\"" + str(chosen_timeout) + "\" is not a valid timeout, please insert a non-negative "
-                                                           "and not null timeout.\n")
+                                                           "timeout.\n")
 
     return chosen_timeout
 
@@ -210,9 +233,9 @@ def solve(input_instance, solving_method, general, timeout):
     rotation = None
 
     if solving_method == "CP":
-        result, elapsed, not_found_timeout = CP_model(input_instance, general, timeout)
+        result, elapsed, not_found_timeout, stats = CP_model(input_instance, general, timeout)
     elif solving_method == "SMT":
-        result, elapsed, not_found_timeout = SMT_model(input_instance, general, timeout)
+        result, elapsed, not_found_timeout, stats = SMT_model(input_instance, general, timeout)
     else:
         raise Exception("Error in choosing solving method.\n")
 
@@ -223,51 +246,77 @@ def solve(input_instance, solving_method, general, timeout):
     except KeyError:
         found = False
 
-    return found, corners, rotation, elapsed, not_found_timeout
+    return found, corners, rotation, elapsed, not_found_timeout, stats
+
+
+def statistics(model, elapsed, solutions=None, failures=None):
+    pass
 
 
 if __name__ == "__main__":
-    #try:
-    specified_path, specified_method, specified_mode, specified_timeout, specified_plot = command_line_interface()
+        clear()
+        print(pyfiglet.figlet_format("P.W.P.", font="slant") + "-" * 25)
+        print("Present Wrapping Problem")
+        print("-" * 25, "\n")
+        specified_path, specified_method, specified_mode, specified_timeout, specified_plot, \
+        specified_stats, no_commands = command_line_interface()
 
-    # Choose the model (standard or complete)
-    general = choose_mode(specified_mode)
+        if not no_commands:
+            # Choose the model (standard or complete)
+            general = choose_mode(specified_mode)
 
-    # Choose the input instance
-    input_instances = choose_input_instance(specified_path)
+            # Choose the input instance
+            input_instances = choose_input_instance(specified_path)
 
-    # Choose the solving method
-    solving_method = choose_method(specified_method)
+            # Choose the solving method
+            solving_method = choose_method(specified_method)
 
-    timeout = choose_timeout(specified_timeout)
+            # Choose timeout
+            timeout = choose_timeout(specified_timeout)
 
-    out_path = ""
+            out_path = ""
 
-    if len(input_instances) is 0:
-        raise Exception("\nSpecified folder is empty, please insert a folder containing file instances.\n")
+            if len(input_instances) == 0:
+                raise Exception("\nSpecified folder is empty, please insert a folder containing file instances.\n")
 
-    for input_instance in input_instances:
+            for input_instance in input_instances:
 
-        print("Solving " + input_instance['name'] + " instance...")
+                print("Solving " + input_instance['name'] + " instance with " + solving_method + "...")
 
-        found, corners, rotation, elapsed, not_found_timeout = solve(input_instance, solving_method, general,
-                                                                     timeout)
-        if timeout is 0:
-            not_found_timeout = False
+                found, corners, rotation, elapsed, not_found_timeout, stats = solve(input_instance, solving_method,
+                                                                                    general,
+                                                                                    timeout)
+                if timeout == 0:
+                    not_found_timeout = False
 
-        if found:
-            print("Solution found in " + str(elapsed) + ".")
-            if not general:
-                rotation = [False for _ in range(input_instance['n_presents'])]
-            out_path = save_solution(solving_method, input_instance['name'], general, corners, rotation)
-            print("Solution saved in \"" + path.abspath(out_path) + "\".\n")
-            if specified_plot and len(input_instances) is 1:
-                plot_solution(input_instance, corners, rotation)
-        else:
-            if not not_found_timeout:
-                print("No solution existing for " + input_instance['name'] + " instance.\n")
-            else:
-                print("Timeout! Solution not found for " + input_instance['name'] + " instance in " + str(
-                    timedelta(seconds=timeout))+".\n")
-    """except Exception as e:
-        print(e)"""
+                if found:
+                    print("Solution found in " + str(elapsed) + ".")
+
+                    if specified_stats:
+                        print("\nSolving statistics:")
+                        if solving_method == "CP":
+                            for key in stats:
+                                print(key + ": " + str(stats[key]))
+                        else:
+                            string_stats = str(stats)[1:-2].split(" ")
+                            string_stats = [elem.rstrip() for elem in string_stats if elem != '']
+                            for elem in string_stats:
+                                if string_stats.index(elem) % 2 == 0:
+                                    print(elem[1:] + ": ", end="")
+                                else:
+                                    print(elem)
+                        print("")
+
+                    if not general:
+                        rotation = [False for _ in range(input_instance['n_presents'])]
+                    out_path = save_solution(solving_method, input_instance['name'], general, corners, rotation)
+                    print("Solution saved in \"" + path.abspath(out_path) + "\".\n\n")
+
+                    if specified_plot and len(input_instances) == 1:
+                        plot_solution(input_instance, corners, rotation)
+                else:
+                    if not not_found_timeout:
+                        print("No solution existing for " + input_instance['name'] + " instance.\n\n")
+                    else:
+                        print("Timeout! Solution not found for " + input_instance['name'] + " instance in " + str(
+                            timedelta(seconds=timeout)) + ".\n\n")
