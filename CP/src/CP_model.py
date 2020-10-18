@@ -4,6 +4,7 @@ from datetime import timedelta
 
 def CP_model(input_instance, general, timeout=0):
     not_found_timeout = False
+    found = True
 
     if general:
         src_model = "CP/src/PWP_CP_general"
@@ -13,17 +14,27 @@ def CP_model(input_instance, general, timeout=0):
     solver = Solver.lookup("gecode")
     instance = Instance(solver, model)
 
-    instance["paper_width"] = input_instance['paper_width']
-    instance["paper_height"] = input_instance['paper_height']
-    instance["n_presents"] = input_instance['n_presents']
-    instance["presents_dimensions"] = input_instance['presents_dimensions']
+    instance["roll_width"] = input_instance['roll_width']
+    instance["roll_height"] = input_instance['roll_height']
+    instance["n_pieces"] = input_instance['n_pieces']
+    instance["pieces_dimensions"] = input_instance['pieces_dimensions']
 
     if timeout != 0:
         timeout = timedelta(seconds=timeout)
         result = instance.solve(timeout=timeout)
-        if result.statistics['time'] >= timeout:
-            not_found_timeout = True
+        tolerance = timedelta(seconds=0.15)
+        if result.statistics['time'] >= result.statistics['solveTime']:
+            elapsed = result.statistics['time']
+        else:
+            elapsed = result.statistics['solveTime']
+        if int(result.statistics['solutions']) == 0:
+            found = False
+            if elapsed >= timeout - tolerance:
+                not_found_timeout = True
     else:
         result = instance.solve()
+        elapsed = result.statistics['time']
+        if int(result.statistics['solutions']) == 0:
+            found = False
 
-    return result, result.statistics['solveTime'], not_found_timeout, result.statistics
+    return result, elapsed, not_found_timeout, result.statistics, found

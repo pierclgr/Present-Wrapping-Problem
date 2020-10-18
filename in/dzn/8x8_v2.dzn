@@ -1,8 +1,0 @@
-paper_width = 8;
-paper_height = 8;
-n_presents = 4;
-presents_dimensions = [|
-5, 4|
-3, 4|
-2, 4|
-6, 4|];

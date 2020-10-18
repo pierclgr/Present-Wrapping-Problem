@@ -1,0 +1,20 @@
+24 24
+18
+3 3	15 0
+3 4	14 3	rotated
+3 5	18 0
+3 6	0 16	rotated
+3 7	0 0	rotated
+3 8	7 0	rotated
+3 9	0 9	rotated
+3 10	6 16	rotated
+3 12	9 9	rotated
+3 14	0 3	rotated
+3 18	0 6	rotated
+3 24	21 0
+4 3	18 5	rotated
+4 4	0 12
+4 5	4 12	rotated
+4 12	9 12	rotated
+5 8	16 16
+5 16	0 19	rotated

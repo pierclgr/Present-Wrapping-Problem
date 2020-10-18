@@ -1,7 +1,7 @@
-paper_width = 18;
-paper_height = 18;
-n_presents = 16;
-presents_dimensions = [|
+roll_width = 18;
+roll_height = 18;
+n_pieces = 16;
+pieces_dimensions = [|
 3, 3|
 3, 4|
 3, 5|

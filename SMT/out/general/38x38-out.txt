@@ -1,0 +1,21 @@
+38 38
+19
+3 3	29 0
+3 4	10 3	rotated
+3 5	24 0	rotated
+3 6	32 0	rotated
+3 7	22 3	rotated
+3 8	14 3	rotated
+3 9	29 3	rotated
+3 10	0 3	rotated
+3 11	0 0	rotated
+3 13	11 0	rotated
+4 3	31 30	rotated
+4 5	26 30	rotated
+4 6	0 34	rotated
+4 8	34 30
+4 11	0 30	rotated
+4 12	6 34	rotated
+4 15	11 30	rotated
+4 16	18 34	rotated
+24 38	0 6	rotated

@@ -17,10 +17,10 @@ def convert_to_dzn(file_path):
     file_name = path.basename(file_path).split(".")[0]
 
     with open(out_folder + file_name + ".dzn", "w") as out_file:
-        out_file.write("paper_width = " + str(paper_width) + ";\n")
-        out_file.write("paper_height = " + str(paper_height) + ";\n")
-        out_file.write("n_presents = " + str(n_presents) + ";\n")
-        out_file.write("presents_dimensions = [|")
+        out_file.write("roll_width = " + str(paper_width) + ";\n")
+        out_file.write("roll_height = " + str(paper_height) + ";\n")
+        out_file.write("n_pieces = " + str(n_presents) + ";\n")
+        out_file.write("pieces_dimensions = [|")
         for elem in presents_dimensions:
             out_file.write("\n" + str(elem[0]) + ", " + str(elem[1]) + "|")
         out_file.write("];")

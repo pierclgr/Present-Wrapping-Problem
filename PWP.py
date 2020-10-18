@@ -35,7 +35,6 @@ def command_line_interface():
         print("--method \"solver\"")
         print("\tsolves the specified file/folder instance(s) using one of these solver:")
         print("\t\t\"CP\" - Constraint Programming")
-        print("\t\t\"SAT\" - Propositional Satisfiability")
         print("\t\t\"SMT\" - Satisfiability Modulo Theories\n")
         print("--mode \"solving_mode\"")
         print("\tsolves the specified file/folder instance(s) using one of these mode:")
@@ -161,14 +160,14 @@ def choose_input_instance(chosen_input_instance):
         name = ntpath.basename(file).split(".")[0]
         with open(file) as input_instance_file:
             lines = input_instance_file.readlines()
-            n_presents = int(lines[1].rstrip())
-            presents_dimensions = [[int(lines[i + 2].rstrip().split(" ")[0]), int(lines[i + 2].rstrip().split(" ")[1])]
+            n_pieces = int(lines[1].rstrip())
+            pieces_dimensions = [[int(lines[i + 2].rstrip().split(" ")[0]), int(lines[i + 2].rstrip().split(" ")[1])]
                                    for
-                                   i in range(n_presents)]
-            instance = {'paper_width': int(lines[0].rstrip().split(" ")[0]),
-                        'paper_height': int(lines[0].rstrip().split(" ")[1]),
-                        'n_presents': n_presents,
-                        'presents_dimensions': presents_dimensions,
+                                   i in range(n_pieces)]
+            instance = {'roll_width': int(lines[0].rstrip().split(" ")[0]),
+                        'roll_height': int(lines[0].rstrip().split(" ")[1]),
+                        'n_pieces': n_pieces,
+                        'pieces_dimensions': pieces_dimensions,
                         'name': name}
             instances.append(instance)
 
@@ -178,11 +177,10 @@ def choose_input_instance(chosen_input_instance):
 
 # Define function to choose the solving method
 def choose_method(chosen_method):
-    if chosen_method.upper() != "CP" and chosen_method.upper() != "SAT" and chosen_method.upper() != "SMT":
+    if chosen_method.upper() != "CP" and chosen_method.upper() != "SMT":
         raise Exception("\n\"" + chosen_method + "\" is not a valid solving method, "
                                                  "please insert one of these methods:\n"
                                                  "\t\"CP\" - Constraint Programming\n"
-                                                 "\t\"SAT\" - Propositional Satisfiability\n"
                                                  "\t\"SMT\" - Satisfiability Modulo Theories\n")
 
     chosen_solving_method = chosen_method.upper()
@@ -228,32 +226,18 @@ def save_solution(solving_method, chosen_input_instance, general, corners, rotat
 
 
 def solve(input_instance, solving_method, general, timeout):
-    found = True
-    corners = None
-    rotation = None
-
     if solving_method == "CP":
-        result, elapsed, not_found_timeout, stats = CP_model(input_instance, general, timeout)
+        result, elapsed, not_found_timeout, stats, found = CP_model(input_instance, general, timeout)
     elif solving_method == "SMT":
-        result, elapsed, not_found_timeout, stats = SMT_model(input_instance, general, timeout)
+        result, elapsed, not_found_timeout, stats, found = SMT_model(input_instance, general, timeout)
     else:
         raise Exception("Error in choosing solving method.\n")
 
-    try:
-        corners = result['presents_corners']
-        if general:
-            rotation = result['presents_rotation']
-    except KeyError:
-        found = False
-
-    return found, corners, rotation, elapsed, not_found_timeout, stats
-
-
-def statistics(model, elapsed, solutions=None, failures=None):
-    pass
+    return result, elapsed, not_found_timeout, stats, found
 
 
 if __name__ == "__main__":
+    # try:
         clear()
         print(pyfiglet.figlet_format("P.W.P.", font="slant") + "-" * 25)
         print("Present Wrapping Problem")
@@ -279,44 +263,71 @@ if __name__ == "__main__":
             if len(input_instances) == 0:
                 raise Exception("\nSpecified folder is empty, please insert a folder containing file instances.\n")
 
+            n_solved_instances = 0
+            n_unsolved_instances = 0
+            avg_time = timedelta(milliseconds=0)
+            avg_failures = 0
+            avg_restarts = 0
+
             for input_instance in input_instances:
-
                 print("Solving " + input_instance['name'] + " instance with " + solving_method + "...")
-
-                found, corners, rotation, elapsed, not_found_timeout, stats = solve(input_instance, solving_method,
+                result, elapsed, not_found_timeout, stats, found = solve(input_instance, solving_method,
                                                                                     general,
                                                                                     timeout)
-                if timeout == 0:
-                    not_found_timeout = False
-
                 if found:
+                    n_solved_instances += 1
                     print("Solution found in " + str(elapsed) + ".")
 
-                    if specified_stats:
-                        print("\nSolving statistics:")
-                        if solving_method == "CP":
-                            for key in stats:
-                                print(key + ": " + str(stats[key]))
-                        else:
-                            string_stats = str(stats)[1:-2].split(" ")
-                            string_stats = [elem.rstrip() for elem in string_stats if elem != '']
-                            for elem in string_stats:
-                                if string_stats.index(elem) % 2 == 0:
-                                    print(elem[1:] + ": ", end="")
-                                else:
-                                    print(elem)
-                        print("")
+                    corners = result['pieces_corners']
+                    if general:
+                        rotation = result['pieces_rotation']
+                    else:
+                        rotation = [False for _ in range(input_instance['n_pieces'])]
 
-                    if not general:
-                        rotation = [False for _ in range(input_instance['n_presents'])]
                     out_path = save_solution(solving_method, input_instance['name'], general, corners, rotation)
-                    print("Solution saved in \"" + path.abspath(out_path) + "\".\n\n")
+                    print("Solution saved in \"" + path.abspath(out_path) + "\".\n")
 
                     if specified_plot and len(input_instances) == 1:
                         plot_solution(input_instance, corners, rotation)
                 else:
-                    if not not_found_timeout:
-                        print("No solution existing for " + input_instance['name'] + " instance.\n\n")
-                    else:
+                    n_unsolved_instances += 1
+                    if not_found_timeout:
                         print("Timeout! Solution not found for " + input_instance['name'] + " instance in " + str(
-                            timedelta(seconds=timeout)) + ".\n\n")
+                            timedelta(seconds=timeout)) + ".\n")
+                    else:
+                        print("No solution existing for " + input_instance['name'] + " instance.\n")
+
+                avg_time += elapsed
+                if solving_method == "CP":
+                    avg_failures += int(stats['failures'])
+                    avg_restarts += int(stats['restarts'])
+
+                if specified_stats:
+                    print("Statistics:")
+                    if solving_method == "CP":
+                        for key in stats:
+                            print(key + ": " + str(stats[key]))
+                    else:
+                        string_stats = str(stats)[1:-2].split(" ")
+                        string_stats = [elem.rstrip() for elem in string_stats if elem != '']
+                        for elem in string_stats:
+                            if string_stats.index(elem) % 2 == 0:
+                                print(elem[1:] + ": ", end="")
+                            else:
+                                print(elem)
+                    print("\n")
+
+            if specified_stats and len(input_instances) > 1:
+                avg_time /= len(input_instances)
+                print("Solved instances:", n_solved_instances)
+                print("Unsolved instances:", n_unsolved_instances)
+                print("Average solving time:", avg_time)
+                if solving_method == "CP":
+                    avg_failures /= len(input_instances)
+                    avg_restarts /= len(input_instances)
+                    print("Average failures:", int(avg_failures))
+                    print("Average restarts:", int(avg_restarts))
+                print("")
+
+    # except Exception as e:
+    #    print(e)
